@@ -1,0 +1,89 @@
+service: aws-rest-ful-api
+
+custom:
+  tableName: 'table-notes-${self:provider.stage}'
+  dynamodb:
+    start:
+      migrate: true
+
+provider:
+  name: aws
+  runtime: nodejs8.10
+  stage: dev
+  region: us-east-1
+  environment:
+    NOTES_TABLE: ${self:custom.tableName}
+
+functions:
+  create:
+    handler: src/handler.create
+    events:
+      - http:
+          path: notes
+          method: post
+          cors: true
+  getOne:
+    handler: src/handler.getOne
+    events:
+      - http:
+          path: notes/{id}
+          method: get
+          cors: true
+  getAll:
+    handler: src/handler.getAll
+    events:
+      - http:
+          path: notes
+          method: get
+          cors: true
+  update:
+    handler: src/handler.update
+    events:
+      - http:
+          path: notes/{id}
+          method: put
+          cors: true
+  delete:
+    handler: src/handler.delete
+    events:
+      - http:
+          path: notes/{id}
+          method: delete
+          cors: true
+
+resources:
+  Resources:
+    NotesDynamoDBTable:
+      Type: 'AWS::DynamoDB::Table'
+      Properties:
+        AttributeDefinitions:
+          -
+            AttributeName: id
+            AttributeType: S
+        KeySchema:
+          -
+            AttributeName: id
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        TableName: ${self:custom.tableName}
+    NotesDynamoDBIamPolicy:
+      Type: AWS::IAM::Policy
+      DependsOn: NotesDynamoDBTable
+      Properties:
+        PolicyName: lambda-dynamodb
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:Query
+                - dynamodb:Scan
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:UpdateItem
+                - dynamodb:DeleteItem
+              Resource: arn:aws:dynamodb:*:*:table/${self:custom.tableName}
+        Roles:
+          - Ref: IamRoleLambdaExecution
